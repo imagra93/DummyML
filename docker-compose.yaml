@@ -1,0 +1,15 @@
+version: "1.0"
+services:
+  dev:
+    build:
+      context: .
+      args:
+        - GITHUB_TOKEN=$GITHUB_TOKEN
+    volumes:
+      - .:/workspace
+      - ~/.gitconfig:/home/docker/.gitconfig
+    ipc: host
+    runtime: nvidia
+    entrypoint: bash
+    stdin_open: true
+    tty: true
