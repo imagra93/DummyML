@@ -28,6 +28,7 @@ class LogisticRegression:
         self.num_iters = num_iters
         self.weights = None
         self.bias = None
+        self.cost_list = None
         self.print_cost = print_cost
 
     def sigmoid(self, z):
@@ -75,12 +76,15 @@ class LogisticRegression:
         if self.print_cost: 
             print(f"Training with gradient descent ({self.num_iters} epochs)")
 
+        self.cost_list = []
+
         for it in range(self.num_iters):
             # Calculate hypothesis
             y_predict = self.sigmoid(np.dot(X, self.weights) + self.bias)
 
             # Calculate cost
             cost = self.cost(y_predict, y)
+            self.cost_list.append(cost)
 
             # Backpropagation / Gradient calculations
             dw = 1 / self.m * np.dot(X.T, (y_predict - y))
