@@ -77,8 +77,8 @@ class NaiveBayes:
 # Example usage
 if __name__ == "__main__":
     # Load example data
-    X = np.loadtxt("naivebayes/example_data/data.txt", delimiter=",")
-    y = np.loadtxt("naivebayes/example_data/targets.txt") - 1
+    X = np.loadtxt("src/naivebayes/example_data/data.txt", delimiter=",")
+    y = np.loadtxt("src/naivebayes/example_data/targets.txt") - 1
 
     # Create NaiveBayes object, fit the model, and make predictions
     NB = NaiveBayes(X, y)

@@ -1,29 +1,64 @@
-"""
-Implementation of Decision Tree model from scratch.
-Metric used to apply the split on the data is the Gini index which is calculated for each feature's single value
-in order to find the best split on each step. This means there is room for improvement performance wise as this
-process is O(n^2) and can be reduced to linear complexity.
-
-Parameters of the model:
-max_depth (int): Maximum depth of the decision tree
-min_node_size (int): Minimum number of instances a node can have. If this threshold is exceeded the node is terminated
-"""
-
 from collections import Counter
 import numpy as np
 
 class DecisionTree:
-    def __init__(self, max_depth, min_node_size):
+    def __init__(self, max_depth=10, min_node_size=1, criterion="entropy"):
         """
         Initialize the DecisionTree model.
 
         Parameters:
         - max_depth (int): Maximum depth of the decision tree.
         - min_node_size (int): Minimum number of instances a node can have. If this threshold is exceeded, the node is terminated.
+        - criterion (str): Splitting criterion, either "gini" or "entropy".
         """
         self.max_depth = max_depth
         self.min_node_size = min_node_size
-        self.final_tree = {}
+        self.tree = None
+        self.criterion = criterion
+
+    def calculate_criterion(self, child_nodes):
+        """
+        Calculate the specified criterion (Gini or Entropy) for a set of child nodes.
+
+        Parameters:
+        - child_nodes (list of np arrays): The groups of instances resulting from the split.
+
+        Returns:
+        - float: Gini index or Entropy of the split.
+        """
+        if self.criterion == "gini":
+            return self.calculate_gini(child_nodes)
+        elif self.criterion == "entropy":
+            return self.calculate_entropy(child_nodes)
+        else:
+            raise ValueError("Invalid criterion. Use 'gini' or 'entropy'.")
+
+    def calculate_entropy(self, child_nodes):
+        """
+        Calculate the Entropy of a split in the dataset.
+
+        Parameters:
+        - child_nodes (list of np arrays): The groups of instances resulting from the split.
+
+        Returns:
+        - float: Entropy of the split.
+        """
+        n = sum(len(node) for node in child_nodes)
+        entropy = 0
+
+        for node in child_nodes:
+            m = len(node)
+            if m == 0:
+                continue
+
+            y = [row[-1] for row in node]
+            freq = Counter(y).values()
+
+            # Entropy Formula: H(S) = -sum(p_i * log2(p_i))
+            node_entropy = -sum((i / m) * np.log2(i / m) if i > 0 else 0 for i in freq)
+            entropy += (m / n) * node_entropy
+
+        return entropy
 
     def calculate_gini(self, child_nodes):
         """
@@ -43,9 +78,10 @@ class DecisionTree:
             if m == 0:
                 continue
 
-            y = [row[-1] for row in node]
+            y = [row[-1] for row in node] # Last value is the class.
             freq = Counter(y).values()
 
+            # Gini Index Formula: Gini(S) = 1 - sum(p_i^2)
             node_gini = 1 - sum((i / m) ** 2 for i in freq)
             gini += (m / n) * node_gini
 
@@ -70,7 +106,7 @@ class DecisionTree:
 
     def find_best_split(self, data):
         """
-        Find the best split on the dataset on each iteration of the algorithm by evaluating all possible splits and applying the one with the minimum Gini index.
+        Find the best split on the dataset based on the specified criterion.
 
         Parameters:
         - data: Dataset.
@@ -78,22 +114,22 @@ class DecisionTree:
         Returns:
         - dict: Dictionary with the index of the splitting feature and its value and the two child nodes.
         """
-        num_of_features = len(data[0]) - 1
-        gini_score = float('inf')
+        num_of_features = len(data[0]) - 1 # Last value not a feature.
+        criterion_score = float('inf')
         f_index = 0
         f_value = 0
         child_nodes = []
 
-        for column in range(num_of_features):
+        for feat_idx in range(num_of_features):
             for row in data:
-                value = row[column]
-                l, r = self.apply_split(column, value, data)
+                value = row[feat_idx]
+                l, r = self.apply_split(feat_idx, value, data)
                 children = [l, r]
-                score = self.calculate_gini(children)
+                score = self.calculate_criterion(children)
 
-                if score < gini_score:
-                    gini_score = score
-                    f_index, f_value, child_nodes = column, value, children
+                if score < criterion_score:
+                    criterion_score = score
+                    f_index, f_value, child_nodes = feat_idx, value, children
 
         return {"feature": f_index, "value": f_value, "children": child_nodes}
 
@@ -107,7 +143,7 @@ class DecisionTree:
         Returns:
         - Most common class value.
         """
-        y = [row[-1] for row in node]
+        y = [row[-1] for row in node] # Last value is the class.
         occurence_count = Counter(y)
         return occurence_count.most_common(1)[0][0]
 
@@ -138,58 +174,40 @@ class DecisionTree:
         node["right"] = self.find_best_split(r)
         self.recursive_split(node["right"], depth + 1)
 
-    def train(self, X):
+    def fit(self, X, y):
         """
         Apply the recursive split algorithm on the data in order to build the decision tree.
 
         Parameters:
         - X (np.array): Training data.
-
-        Returns:
-        - dict: The decision tree in the form of a dictionary.
+        - y (np.array): Target labels.
         """
-        tree = self.find_best_split(X)
-        self.recursive_split(tree, 1)
-        self.final_tree = tree
-        return tree
+        data = np.column_stack((X, y))  # Combine features and labels into one array
+        self.tree = self.find_best_split(data)
+        self.recursive_split(self.tree, 1)
 
-    def print_dt(self, tree, depth=0):
-        """
-        Print out the decision tree.
-
-        Parameters:
-        - tree (dict): Decision tree.
-        - depth (int): Current depth of the tree.
-        """
-        if "feature" in tree:
-            print("\nSPLIT NODE: feature #{} < {} depth:{}\n".format(tree["feature"], tree["value"], depth))
-            self.print_dt(tree["left"], depth + 1)
-            self.print_dt(tree["right"], depth + 1)
-        else:
-            print("TERMINAL NODE: class value:{} depth:{}".format(tree["class_value"], tree["depth"]))
-
-    def predict_single(self, tree, instance):
+    def predict_single(self, instance):
         """
         Output the class value of the instance given based on the decision tree created previously.
 
         Parameters:
-        - tree (dict): Decision tree.
         - instance (np.array): Single instance of data.
 
         Returns:
         - float: Predicted class value of the given instance.
         """
-        if not tree:
+        if self.tree is None:
             print("ERROR: Please train the decision tree first")
             return -1
 
-        if "feature" in tree:
+        tree = self.tree
+        while "feature" in tree:
             if instance[tree["feature"]] < tree["value"]:
-                return self.predict_single(tree["left"], instance)
+                tree = tree["left"]
             else:
-                return self.predict_single(tree["right"], instance)
-        else:
-            return tree["class_value"]
+                tree = tree["right"]
+
+        return tree["class_value"]
 
     def predict(self, X):
         """
@@ -201,16 +219,15 @@ class DecisionTree:
         Returns:
         - np.array: Array with the predicted class values of the dataset.
         """
-        return np.array([self.predict_single(self.final_tree, row) for row in X])
+        return np.array([self.predict_single(row) for row in X])
 
 
 if __name__ == "__main__":
-    train_data = np.loadtxt("decisiontree/example_data/data.txt", delimiter=",")
-    train_y = np.loadtxt("decisiontree/example_data/targets.txt")
+    train_data = np.loadtxt("src/decisiontree/example_data/data.txt", delimiter=",")
+    train_y = np.loadtxt("src/decisiontree/example_data/targets.txt")
 
-    dt = DecisionTree(max_depth=5, min_node_size=1)
-    tree = dt.train(train_data)
-    dt.print_dt(tree)
+    dt = DecisionTree(max_depth=4, min_node_size=1, criterion="entropy") # gini or entropy
+    dt.fit(train_data, train_y)
     y_pred = dt.predict(train_data)
     accuracy = sum(y_pred == train_y) / train_y.shape[0]
-    print(f"Accuracy: {accuracy}")
+    print(f"Accuracy: {accuracy:.3f}")
