@@ -26,14 +26,15 @@ def create_dataset(N, D=2, K=2):
 
     # Visualize the data
     plt.scatter(X[:, 0], X[:, 1], c=y, s=40, cmap=plt.cm.Spectral)
-    plt.savefig('dataset_plot.png')
-    plt.show()
+    plt.savefig('src/svm/dataset_plot.png')
+    #plt.show()
+    plt.close()
 
     y[y == 0] -= 1
 
     return X, y
 
-def plot_contour(X, y, svm):
+def plot_contour(X, y, svm, title=''):
     """
     Plot decision boundaries and data points for a given SVM classifier.
 
@@ -57,5 +58,6 @@ def plot_contour(X, y, svm):
 
     # Plot the points
     plt.scatter(X[:, 0], X[:, 1], c=y, s=40, cmap=plt.cm.Spectral)
-    plt.savefig('svm_decision_boundary.png')
-    plt.show()
+    plt.savefig(f'src/svm/svm_decision_boundary_{title}.png')
+    #plt.show()
+    plt.close()
